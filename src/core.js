@@ -1,277 +1,390 @@
-import jQuery from 'jquery'
-import { createElementFromHTML } from './utils'
+import { createElementFromHTML } from './utils';
 
 const ClientSideValidations = {
   callbacks: {
     element: {
-      after: ($element, eventData) => {},
-      before: ($element, eventData) => {},
-      fail: ($element, message, addError, eventData) => addError(),
-      pass: ($element, removeError, eventData) => removeError()
+      after: (element, eventData) => {},
+      before: (element, eventData) => {},
+      fail: (element, message, addError, eventData) => addError(),
+      pass: (element, removeError, eventData) => removeError(),
     },
     form: {
-      after: ($form, eventData) => {},
-      before: ($form, eventData) => {},
-      fail: ($form, eventData) => {},
-      pass: ($form, eventData) => {}
-    }
+      after: (form, eventData) => {},
+      before: (form, eventData) => {},
+      fail: (form, eventData) => {},
+      pass: (form, eventData) => {},
+    },
   },
   eventsToBind: {
-    form: (form, $form) => ({
-      'submit.ClientSideValidations': (eventData) => {
-        if (!$form.isValid(form.ClientSideValidations.settings.validators)) {
-          eventData.preventDefault()
-          eventData.stopImmediatePropagation()
+    form: (form) => ({
+      submit: (eventData) => {
+        if (!isValidForm(form.ClientSideValidations.settings.validators)) {
+          eventData.preventDefault();
+          eventData.stopImmediatePropagation();
         }
       },
-      'ajax:beforeSend.ClientSideValidations': function (eventData) {
-        if (eventData.target === this) {
-          $form.isValid(form.ClientSideValidations.settings.validators)
+      'ajax:beforeSend': function (eventData) {
+        if (eventData.target === form) {
+          isValidForm(form.ClientSideValidations.settings.validators);
         }
       },
-      'form:validate:after.ClientSideValidations': (eventData) => {
-        ClientSideValidations.callbacks.form.after($form, eventData)
+      'form:validate:after': (eventData) => {
+        ClientSideValidations.callbacks.form.after(form, eventData);
       },
-      'form:validate:before.ClientSideValidations': (eventData) => {
-        ClientSideValidations.callbacks.form.before($form, eventData)
+      'form:validate:before': (eventData) => {
+        ClientSideValidations.callbacks.form.before(form, eventData);
       },
-      'form:validate:fail.ClientSideValidations': (eventData) => {
-        ClientSideValidations.callbacks.form.fail($form, eventData)
+      'form:validate:fail': (eventData) => {
+        ClientSideValidations.callbacks.form.fail(form, eventData);
       },
-      'form:validate:pass.ClientSideValidations': (eventData) => {
-        ClientSideValidations.callbacks.form.pass($form, eventData)
-      }
+      'form:validate:pass': (eventData) => {
+        ClientSideValidations.callbacks.form.pass(form, eventData);
+      },
     }),
     input: (form) => ({
-      'focusout.ClientSideValidations': function () {
-        jQuery(this).isValid(form.ClientSideValidations.settings.validators)
+      focusout: function () {
+        isValidElement(this, form.ClientSideValidations.settings.validators);
       },
-      'change.ClientSideValidations': function () {
-        jQuery(this).data('changed', true)
+      change: function () {
+        this.dataset.changed = true;
       },
-      'element:validate:after.ClientSideValidations': function (eventData) {
-        ClientSideValidations.callbacks.element.after(jQuery(this), eventData)
+      'element:validate:after': function (eventData) {
+        ClientSideValidations.callbacks.element.after(this, eventData);
       },
-      'element:validate:before.ClientSideValidations': function (eventData) {
-        ClientSideValidations.callbacks.element.before(jQuery(this), eventData)
+      'element:validate:before': function (eventData) {
+        ClientSideValidations.callbacks.element.before(this, eventData);
       },
-      'element:validate:fail.ClientSideValidations': function (eventData, message) {
-        const $element = jQuery(this)
-
-        ClientSideValidations.callbacks.element.fail($element, message, function () {
-          form.ClientSideValidations.addError($element, message)
-        }, eventData)
+      'element:validate:fail': function (eventData, message) {
+        ClientSideValidations.callbacks.element.fail(this, message, () => {
+          form.ClientSideValidations.addError(this, message);
+        }, eventData);
       },
-      'element:validate:pass.ClientSideValidations': function (eventData) {
-        const $element = jQuery(this)
-
-        ClientSideValidations.callbacks.element.pass($element, function () {
-          form.ClientSideValidations.removeError($element)
-        }, eventData)
-      }
+      'element:validate:pass': function (eventData) {
+        ClientSideValidations.callbacks.element.pass(this, () => {
+          form.ClientSideValidations.removeError(this);
+        }, eventData);
+      },
     }),
-    inputConfirmation: ($element, form) => ({
-      'focusout.ClientSideValidations': () => {
-        $element.data('changed', true).isValid(form.ClientSideValidations.settings.validators)
+    inputConfirmation: (element, form) => ({
+      focusout: () => {
+        element.dataset.changed = true;
+        isValidElement(element, form.ClientSideValidations.settings.validators);
       },
-      'keyup.ClientSideValidations': () => {
-        $element.data('changed', true).isValid(form.ClientSideValidations.settings.validators)
-      }
-    })
+      keyup: () => {
+        element.dataset.changed = true;
+        isValidElement(element, form.ClientSideValidations.settings.validators);
+      },
+    }),
   },
   enablers: {
     form: (form) => {
-      const $form = jQuery(form)
-
       form.ClientSideValidations = {
-        settings: $form.data('clientSideValidations'),
-        addError: ($element, message) => ClientSideValidations
-          .formBuilders[form.ClientSideValidations.settings.html_settings.type]
-          .add($element, form.ClientSideValidations.settings.html_settings, message),
-        removeError: ($element) => ClientSideValidations
-          .formBuilders[form.ClientSideValidations.settings.html_settings.type]
-          .remove($element, form.ClientSideValidations.settings.html_settings)
+        settings: form.dataset.clientSideValidations,
+        addError: (element, message) =>
+          ClientSideValidations.formBuilders[form.ClientSideValidations.settings.html_settings.type].add(
+            element,
+            form.ClientSideValidations.settings.html_settings,
+            message
+          ),
+        removeError: (element) =>
+          ClientSideValidations.formBuilders[form.ClientSideValidations.settings.html_settings.type].remove(
+            element,
+            form.ClientSideValidations.settings.html_settings
+          ),
+      };
+
+      const eventsToBind = ClientSideValidations.eventsToBind.form(form);
+
+      for (const [eventName, eventFunction] of Object.entries(eventsToBind)) {
+        form.addEventListener(eventName, eventFunction);
       }
 
-      const eventsToBind = ClientSideValidations.eventsToBind.form(form, $form)
-
-      for (const eventName in eventsToBind) {
-        const eventFunction = eventsToBind[eventName]
-        $form.on(eventName, eventFunction)
-      }
-
-      $form.find(ClientSideValidations.selectors.inputs).each(function () {
-        ClientSideValidations.enablers.input(this)
-      })
+      form.querySelectorAll(ClientSideValidations.selectors.inputs).forEach((input) => {
+        ClientSideValidations.enablers.input(input);
+      });
     },
-    input: function (input) {
-      const $input = jQuery(input)
-      const form = input.form
-      const $form = jQuery(form)
+    input: (input) => {
+      const form = input.form;
 
-      const eventsToBind = ClientSideValidations.eventsToBind.input(form)
+      const eventsToBind = ClientSideValidations.eventsToBind.input(form);
 
-      for (const eventName in eventsToBind) {
-        const eventFunction = eventsToBind[eventName]
-
-        $input.filter(':not(:radio):not([id$=_confirmation])').each(function () {
-          jQuery(this).attr('data-validate', true)
-        }).on(eventName, eventFunction)
+      for (const [eventName, eventFunction] of Object.entries(eventsToBind)) {
+        input.addEventListener(eventName, eventFunction);
       }
 
-      $input.filter(':checkbox').on('change.ClientSideValidations', function () {
-        jQuery(this).isValid(form.ClientSideValidations.settings.validators)
-      })
+      if (input.type === 'checkbox') {
+        input.addEventListener('change', () => {
+          isValidElement(input, form.ClientSideValidations.settings.validators);
+        });
+      }
 
-      $input.filter('[id$=_confirmation]').each(function () {
-        const $element = jQuery(this)
-        const $elementToConfirm = $form.find(`#${this.id.match(/(.+)_confirmation/)[1]}:input`)
+      if (input.id && input.id.endsWith('_confirmation')) {
+        const elementToConfirm = form.querySelector(`#${input.id.match(/(.+)_confirmation/)[1]}:input`);
+        if (elementToConfirm) {
+          const confirmationEvents = ClientSideValidations.eventsToBind.inputConfirmation(elementToConfirm, form);
 
-        if ($elementToConfirm.length) {
-          const eventsToBind = ClientSideValidations.eventsToBind.inputConfirmation($elementToConfirm, form)
-
-          for (const eventName in eventsToBind) {
-            const eventFunction = eventsToBind[eventName]
-            jQuery(`#${$element.attr('id')}`).on(eventName, eventFunction)
+          for (const [eventName, eventFunction] of Object.entries(confirmationEvents)) {
+            elementToConfirm.addEventListener(eventName, eventFunction);
           }
         }
-      })
-    }
+      }
+    },
   },
   formBuilders: {
     'ActionView::Helpers::FormBuilder': {
-      add: ($element, settings, message) => {
-        const element = $element[0]
+      add: (element, settings, message) => {
+        const form = element.form;
 
-        const form = element.form
-
-        const inputErrorTemplate = createElementFromHTML(settings.input_tag)
-        let inputErrorElement = element.closest(`.${inputErrorTemplate.getAttribute('class').replace(/ /g, '.')}`)
+        const inputErrorTemplate = createElementFromHTML(settings.input_tag);
+        let inputErrorElement = element.closest(`.${inputErrorTemplate.classList}`);
 
         if (!inputErrorElement) {
-          inputErrorElement = inputErrorTemplate
+          inputErrorElement = inputErrorTemplate;
 
-          if (element.getAttribute('autofocus')) {
-            element.setAttribute('autofocus', false)
+          if (element.hasAttribute('autofocus')) {
+            element.removeAttribute('autofocus');
           }
 
-          element.before(inputErrorElement)
-          inputErrorElement.querySelector('span#input_tag').replaceWith(element)
+          element.insertAdjacentElement('beforebegin', inputErrorElement);
+          inputErrorElement.querySelector('span#input_tag').replaceWith(element);
 
-          const inputErrorLabelMessageElement = inputErrorElement.querySelector('label.message')
+          const inputErrorLabelMessageElement = inputErrorElement.querySelector('label.message');
 
           if (inputErrorLabelMessageElement) {
-            inputErrorLabelMessageElement.setAttribute('for', element.id)
+            inputErrorLabelMessageElement.setAttribute('for', element.id);
           }
         }
 
-        const labelElement = form.querySelector(`label[for="${element.id}"]:not(.message)`)
+        const labelElement = form.querySelector(`label[for="${element.id}"]:not(.message)`);
 
         if (labelElement) {
-          const labelErrorTemplate = createElementFromHTML(settings.label_tag)
-          const labelErrorContainer = labelElement.closest(`.${labelErrorTemplate.getAttribute('class').replace(/ /g, '.')}`)
+          const labelErrorTemplate = createElementFromHTML(settings.label_tag);
+          const labelErrorContainer = labelElement.closest(`.${labelErrorTemplate.classList}`);
 
           if (!labelErrorContainer) {
-            labelElement.after(labelErrorTemplate)
-            labelErrorTemplate.querySelector('label#label_tag').replaceWith(labelElement)
+            labelElement.insertAdjacentElement('afterend', labelErrorTemplate);
+            labelErrorTemplate.querySelector('label#label_tag').replaceWith(labelElement);
           }
         }
 
-        const labelMessageElement = form.querySelector(`label.message[for="${element.id}"]`)
+        const labelMessageElement = form.querySelector(`label.message[for="${element.id}"]`);
 
         if (labelMessageElement) {
-          labelMessageElement.textContent = message
+          labelMessageElement.textContent = message;
         }
       },
-      remove: ($element, settings) => {
-        const element = $element[0]
+      remove: (element, settings) => {
+        const form = element.form;
 
-        const form = element.form
-
-        const inputErrorClass = createElementFromHTML(settings.input_tag).getAttribute('class')
-        const inputErrorElement = element.closest(`.${inputErrorClass.replace(/ /g, '.')}`)
+        const inputErrorClass = createElementFromHTML(settings.input_tag).classList;
+        const inputErrorElement = element.closest(`.${inputErrorClass}`);
 
         if (inputErrorElement) {
-          inputErrorElement.querySelector(`#${element.id}`).remove()
-          inputErrorElement.replaceWith(element)
+          inputErrorElement.querySelector(`#${element.id}`).remove();
+          inputErrorElement.replaceWith(element);
         }
 
-        const labelElement = form.querySelector(`label[for="${element.id}"]:not(.message)`)
+        const labelElement = form.querySelector(`label[for="${element.id}"]:not(.message)`);
 
         if (labelElement) {
-          const labelErrorClass = createElementFromHTML(settings.label_tag).getAttribute('class')
-          const labelErrorElement = labelElement.closest(`.${labelErrorClass.replace(/ /g, '.')}`)
+          const labelErrorClass = createElementFromHTML(settings.label_tag).classList;
+          const labelErrorElement = labelElement.closest(`.${labelErrorClass}`);
 
           if (labelErrorElement) {
-            labelErrorElement.replaceWith(labelElement)
+            labelErrorElement.replaceWith(labelElement);
           }
         }
 
-        const labelMessageElement = form.querySelector(`label.message[for="${element.id}"]`)
+        const labelMessageElement = form.querySelector(`label.message[for="${element.id}"]`);
 
         if (labelMessageElement) {
-          labelMessageElement.remove()
+          labelMessageElement.remove();
         }
-      }
-    }
+      },
+    },
   },
   patterns: {
     numericality: {
       default: /^[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?$/,
-      only_integer: /^[+-]?\d+$/
-    }
+      only_integer: /^[+-]?\d+$/,
+    },
   },
   selectors: {
-    inputs: ':input:not(button):not([type="submit"])[name]:visible:enabled',
-    validate_inputs: ':input:enabled:visible[data-validate]',
-    forms: 'form[data-client-side-validations]'
+    inputs: 'input:not(button):not([type="submit"])[name]:not([disabled]):not([hidden])',
+    validate_inputs: 'input:not([disabled]):not([hidden])[data-validate]',
+    forms: 'form[data-client-side-validations]',
   },
   validators: {
-    all: () => { return jQuery.extend({}, ClientSideValidations.validators.local, ClientSideValidations.validators.remote) },
+    all: () => Object.assign({}, ClientSideValidations.validators.local, ClientSideValidations.validators.remote),
     local: {},
-    remote: {}
+    remote: {},
   },
   disable: (target) => {
-    const $target = jQuery(target)
+    const elements = target instanceof HTMLElement ? [target] : document.querySelectorAll(target);
 
-    $target.off('.ClientSideValidations')
+    elements.forEach((el) => {
+      el.removeEventListener('.ClientSideValidations');
 
-    if ($target.is('form')) {
-      ClientSideValidations.disable($target.find(':input'))
-    } else {
-      $target.removeData(['changed', 'valid'])
-      $target.filter(':input').each(function () {
-        jQuery(this).removeAttr('data-validate')
-      })
-    }
+      if (el.tagName.toLowerCase() === 'form') {
+        ClientSideValidations.disable(el.querySelectorAll('input'));
+      } else {
+        delete el.dataset.changed;
+        delete el.dataset.valid;
+        if (el.tagName.toLowerCase() === 'input') {
+          el.removeAttribute('data-validate');
+        }
+      }
+    });
   },
   reset: (form) => {
-    const $form = jQuery(form)
-
-    ClientSideValidations.disable(form)
+    ClientSideValidations.disable(form);
 
     for (const key in form.ClientSideValidations.settings.validators) {
-      form.ClientSideValidations.removeError($form.find(`[name="${key}"]`))
+      form.ClientSideValidations.removeError(form.querySelector(`[name="${key}"]`));
     }
 
-    ClientSideValidations.enablers.form(form)
+    ClientSideValidations.enablers.form(form);
   },
   initializeOnEvent: () => {
     if (window.Turbo != null) {
-      return 'turbo:load'
-    } else if ((window.Turbolinks != null) && window.Turbolinks.supported) {
-      return (window.Turbolinks.EVENTS != null) ? 'page:change' : 'turbolinks:load'
+      return 'turbo:load';
+    } else if (window.Turbolinks != null && window.Turbolinks.supported) {
+      return window.Turbolinks.EVENTS != null ? 'page:change' : 'turbolinks:load';
     }
   },
   start: () => {
-    const initializeOnEvent = ClientSideValidations.initializeOnEvent()
+    const initializeOnEvent = ClientSideValidations.initializeOnEvent();
 
     if (initializeOnEvent != null) {
-      jQuery(document).on(initializeOnEvent, () => jQuery(ClientSideValidations.selectors.forms).validate())
+      document.addEventListener(initializeOnEvent, () => validateForms());
     } else {
-      jQuery(() => jQuery(ClientSideValidations.selectors.forms).validate())
+      document.addEventListener('DOMContentLoaded', () => validateForms());
     }
+  },
+};
+
+const validateForms = () => {
+  document.querySelectorAll(ClientSideValidations.selectors.forms).forEach((form) => {
+    validateForm(form.ClientSideValidations.settings.validators);
+  });
+};
+
+function isValidForm(validators) {
+  let valid = true;
+
+  const forms = document.querySelectorAll(ClientSideValidations.selectors.forms);
+
+  forms.forEach((form) => {
+    const validateEvent = new Event('form:validate:before');
+    form.dispatchEvent(validateEvent);
+
+    form.querySelectorAll(ClientSideValidations.selectors.validate_inputs).forEach((input) => {
+      if (!isValidElement(input, validators)) {
+        valid = false;
+      }
+    });
+
+    const passEvent = new Event(valid ? 'form:validate:pass' : 'form:validate:fail');
+    form.dispatchEvent(passEvent);
+
+    form.dispatchEvent(new Event('form:validate:after'));
+  });
+
+  return valid;
+}
+
+function isValidElement(element, validators) {
+  element.dispatchEvent(new Event('element:validate:before'));
+
+  if (isMarkedForDestroy(element)) {
+    passElement(element);
+  } else {
+    executeAllValidators(element, validators);
+  }
+
+  return afterValidate(element);
+}
+
+function passElement(element) {
+  element.dispatchEvent(new Event('element:validate:pass'));
+  element.dataset.valid = null;
+}
+
+function failElement(element, message) {
+  element.dispatchEvent(new CustomEvent('element:validate:fail', { detail: message }));
+  element.dataset.valid = false;
+}
+
+function afterValidate(element) {
+  element.dispatchEvent(new Event('element:validate:after'));
+  return element.dataset.valid !== false;
+}
+
+function executeValidator(validatorFunctions, validatorFunction, validatorOptions, element) {
+  for (const option in validatorOptions) {
+    if (!validatorOptions[option]) continue;
+
+    const message = validatorFunction.call(validatorFunctions, element, validatorOptions[option]);
+
+    if (message) {
+      failElement(element, message);
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function executeValidators(validatorFunctions, element, validators) {
+  for (const validator in validators) {
+    if (!validatorFunctions[validator]) continue;
+
+    if (!executeValidator(validatorFunctions, validatorFunctions[validator], validators[validator], element)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function isMarkedForDestroy(element) {
+  const nameAttr = element.getAttribute('name');
+  if (nameAttr && nameAttr.search(/\[([^\]]*?)\]$/) >= 0) {
+    const destroyInputName = nameAttr.replace(/\[([^\]]*?)\]$/, '[_destroy]');
+    const destroyInput = document.querySelector(`input[name="${destroyInputName}"]`);
+
+    if (destroyInput && destroyInput.value === '1') {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function executeAllValidators(element, validators) {
+  if (element.dataset.changed === false || element.disabled) return;
+
+  element.dataset.changed = false;
+
+  if (executeValidators(ClientSideValidations.validators.all(), element, validators)) {
+    passElement(element);
   }
 }
 
-export default ClientSideValidations
+if (!window.ClientSideValidations) {
+  window.ClientSideValidations = ClientSideValidations;
+
+  if (!isAMD() && !isCommonJS()) {
+    ClientSideValidations.start();
+  }
+}
+
+function isAMD() {
+  return typeof define === 'function' && define.amd;
+}
+
+function isCommonJS() {
+  return typeof exports === 'object' && typeof module !== 'undefined';
+}
+
+export default ClientSideValidations;
